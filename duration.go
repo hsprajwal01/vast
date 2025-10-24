@@ -45,9 +45,23 @@ func (dur *Duration) UnmarshalText(data []byte) (err error) {
 	f := Duration(time.Second)
 	for i := 2; i >= 0; i-- {
 		n, err := strconv.ParseInt(parts[i], 10, 32)
-		if err != nil || n < 0 || n > 60 {
+		if err != nil || n < 0 {
 			return fmt.Errorf("invalid duration: %s", data)
 		}
+
+		// Normalize overflow: 60+ seconds -> minutes, 60+ minutes -> hours
+		if i == 2 && n >= 60 { // seconds
+			extraMinutes := n / 60
+			n = n % 60
+			minutesVal, _ := strconv.ParseInt(parts[1], 10, 32)
+			parts[1] = strconv.FormatInt(minutesVal+extraMinutes, 10)
+		} else if i == 1 && n >= 60 { // minutes
+			extraHours := n / 60
+			n = n % 60
+			hoursVal, _ := strconv.ParseInt(parts[0], 10, 32)
+			parts[0] = strconv.FormatInt(hoursVal+extraHours, 10)
+		}
+
 		*dur += Duration(n) * f
 		f *= 60
 	}
